@@ -1,0 +1,61 @@
+word_embeddings:
+  # Two types of word embedding algorithm (word2vec and glove) are supported.
+  # Just set the default to empty string to disable the word embeddings
+  default: word2vec
+  word2vec:
+    # path: data/embeddings/GoogleNews-vectors-negative300.bin
+    path: data/embeddings/news/w2v.bin
+    dimension: 300
+    binary: True
+  glove:
+    path: data/embeddings/glove.6B/glove.6B.300d.txt
+    dimension: 300
+    length: 400000
+
+datasets:
+  # Support currently 3 datasets: mrpolarity, 20newsgroup and localdata
+  default: financenews
+  mrpolarity:
+    positive_data_file:
+      path: "data/rt-polaritydata/rt-polarity.pos"
+      info: "Data source for the positive data"
+    negative_data_file:
+      path: "data/rt-polaritydata/rt-polarity.neg"
+      info: "Data source for the negative data"
+  20newsgroup:
+    # The dataset includes following 20 newsgroups:
+    # alt.atheism, comp.windows.x, rec.sport.hockey, soc.religion.christian
+    # comp.graphics, misc.forsale, sci.crypt, talk.politics.guns
+    # comp.os.ms-windows.misc, rec.autos, sci.electronics, talk.politics.mideast
+    # comp.sys.ibm.pc.hardware, rec.motorcycles, sci.med, talk.politics.misc
+    # comp.sys.mac.hardware, rec.sport.baseball, sci.space, talk.religion.misc
+    categories:
+      - alt.atheism
+      - comp.graphics
+      - sci.med
+      - soc.religion.christian
+    shuffle: True
+    random_state: 42
+  localdata:
+    # Load text files with categories as subfolder names.
+    # Individual samples are assumed to be files stored
+    # a two levels folder structure such as the following:
+    # container_folder/
+    #   category_1_folder/
+    #     file_1.txt file_2.txt ... file_42.txt
+    #   category_2_folder/
+    #     file_43.txt file_44.txt ...
+    #
+    # As an example, a SentenceCorpus dataset from
+    # https://archive.ics.uci.edu/ml/datasets/Sentence+Classification
+    # has been used. The dataset includes following 3 domains:
+    # arxiv, jdm and plos
+    container_path: data/SentenceCorpus
+    categories:
+    shuffle: True
+    random_state: 42
+  financenews:
+  # The dataset includes following 5 sentiments:
+    path: "data/financenews/financeNews12000_sum.csv"
+    test_path: "data/financenews/news.csv"
+    info: "Data source for the finance news data"
