@@ -25,7 +25,7 @@ class TextFast(object):
             self.W = tf.Variable(
                 tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),  # trainable=False
                 name="W")
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
+            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x) # [None, sequence_length, embedding_size]
 
         # Create a average layer (avg pooling)
         with tf.name_scope("avg-pool"):

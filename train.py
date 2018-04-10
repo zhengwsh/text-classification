@@ -21,6 +21,7 @@ from sklearn.model_selection import KFold
 
 import data_helpers
 from text_fast import TextFast
+from text_dnn import TextDNN
 from text_cnn import TextCNN
 from text_rnn import TextRNN
 from text_birnn import TextBiRNN
@@ -32,20 +33,20 @@ from text_han import TextHAN
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_string("using_nn_type", "texthan", "The type of neural network type (default: textcnn)")  # fasttext textcnn textrnn textbirnn textrcnn texthan
-tf.flags.DEFINE_string("language_type", "zh", "Text language type (default: en)")
+tf.flags.DEFINE_string("using_nn_type", "textcnn", "The type of neural network type (default: textcnn)")  # fasttext textdnn textcnn textrnn textbirnn textrcnn texthan
+tf.flags.DEFINE_string("language_type", "en", "Text language type (default: en)")
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_float("cross_val_folds", 10, "Split the training data to validation with k folds")
-# tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos", "Data source for the positive data.")
-# tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_boolean("enable_word_embeddings", True, "Enable/disable the word embedding (default: True)")
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
+tf.flags.DEFINE_integer("hidden_size", 128, "Number of hidden layer units (default: 128)")
+tf.flags.DEFINE_integer("hidden_layers", 2, "Number of hidden layers (default: 2)")
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_integer("rnn_size", 300, "rnn_size (default: 300)")
-tf.flags.DEFINE_integer("num_rnn_layers", 3, "num_rnn_layers (default: 3)")
+tf.flags.DEFINE_integer("rnn_size", 300, "Number of units rnn_size (default: 300)")
+tf.flags.DEFINE_integer("num_rnn_layers", 3, "Number of rnn layers (default: 3)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 
@@ -156,6 +157,16 @@ with tf.Graph().as_default():
                 vocab_size=len(vocab_processor.vocabulary_),
                 # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
+                l2_reg_lambda=FLAGS.l2_reg_lambda)
+        elif FLAGS.using_nn_type == 'textdnn':
+            nn = TextDNN(
+                sequence_length=x_train.shape[1],
+                num_classes=y_train.shape[1],
+                vocab_size=len(vocab_processor.vocabulary_),
+                # embedding_size=FLAGS.embedding_dim,
+                embedding_size=embedding_dimension,
+                hidden_layers=FLAGS.hidden_layers,
+                hidden_size=FLAGS.hidden_size,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textcnn':
             nn = TextCNN(
@@ -306,7 +317,7 @@ with tf.Graph().as_default():
             """
             Evaluates model on a dev set
             """
-            if FLAGS.using_nn_type in ['fasttext', 'textcnn', 'textrnn', 'textbirnn']:
+            if FLAGS.using_nn_type in ['fasttext', 'textdnn', 'textcnn', 'textrnn', 'textbirnn']:
                 feed_dict = {
                 nn.input_x: x_batch,
                 nn.input_y: y_batch,

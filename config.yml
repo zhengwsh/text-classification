@@ -3,8 +3,8 @@ word_embeddings:
   # Just set the default to empty string to disable the word embeddings
   default: word2vec
   word2vec:
-    # path: data/embeddings/GoogleNews-vectors-negative300.bin
-    path: data/embeddings/news/w2v.bin
+    path: data/embeddings/GoogleNews-vectors-negative300.bin
+    # path: data/embeddings/news/w2v.bin
     dimension: 300
     binary: True
   glove:
@@ -14,7 +14,7 @@ word_embeddings:
 
 datasets:
   # Support currently 3 datasets: mrpolarity, 20newsgroup and localdata
-  default: financenews
+  default: mrpolarity
   mrpolarity:
     positive_data_file:
       path: "data/rt-polaritydata/rt-polarity.pos"
@@ -56,6 +56,6 @@ datasets:
     random_state: 42
   financenews:
   # The dataset includes following 5 sentiments:
-    path: "data/financenews/financeNews12000_sum.csv"
+    path: "data/financenews/financeNews12000_abstract.csv"
     test_path: "data/financenews/news.csv"
     info: "Data source for the finance news data"
