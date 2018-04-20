@@ -1,9 +1,9 @@
 #! /usr/bin/env python
-# ./train.py
+# -*- coding: UTF-8 -*-
 
 """
-~/anaconda3/bin/python train.py
-tensorboard --host localhost --port 6006 --logdir summaries/
+$ ~/anaconda3/bin/python train.py
+$ tensorboard --host localhost --port 6006 --logdir summaries/
 """
 
 import numpy as np
@@ -33,8 +33,9 @@ from text_han import TextHAN
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_string("using_nn_type", "textcnn", "The type of neural network type (default: textcnn)")  # fasttext textdnn textcnn textrnn textbirnn textrcnn texthan
-tf.flags.DEFINE_string("language_type", "en", "Text language type (default: en)")
+tf.flags.DEFINE_string("model_type", "clf", "The type of model, classification or regression (default: clf)")  # clf/reg
+tf.flags.DEFINE_string("using_nn_type", "textcnn", "The type of neural network type (default: textcnn)")  # fasttext/textdnn/textcnn/textrnn/textbirnn/textrcnn/texthan
+tf.flags.DEFINE_string("language_type", "en", "Text language type (default: en)")  # en/zh
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_float("cross_val_folds", 10, "Split the training data to validation with k folds")
 
@@ -52,7 +53,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
@@ -85,9 +86,8 @@ else:
 # Data Preparation
 # ==================================================
 
-# Load data
+# CHANGE THIS: Load data. Load your own training set here
 print("Loading data...")
-# x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
 datasets = None
 if dataset_name == "mrpolarity":
     datasets = data_helpers.get_datasets_mrpolarity(cfg["datasets"][dataset_name]["positive_data_file"]["path"],
@@ -104,7 +104,13 @@ elif dataset_name == "localdata":
                                                      random_state=cfg["datasets"][dataset_name]["random_state"])
 elif dataset_name == "financenews":
     datasets = data_helpers.get_datasets_financenews(cfg["datasets"][dataset_name]["path"])
-x_text, y = data_helpers.load_data_labels(datasets)
+elif dataset_name == "scoringdocuments":
+    datasets = data_helpers.get_datasets_scoringdocuments(cfg["datasets"][dataset_name]["path"])
+
+if FLAGS.model_type == 'clf':
+    x_text, y = data_helpers.load_data_labels(datasets)
+elif FLAGS.model_type == 'reg':
+    x_text, y = data_helpers.load_data_label(datasets)
 
 # Build vocabulary
 if FLAGS.language_type == 'en':
@@ -152,38 +158,38 @@ with tf.Graph().as_default():
     with sess.as_default():
         if FLAGS.using_nn_type == 'fasttext':
             nn = TextFast(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textdnn':
             nn = TextDNN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 hidden_layers=FLAGS.hidden_layers,
                 hidden_size=FLAGS.hidden_size,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textcnn':
             nn = TextCNN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                 num_filters=FLAGS.num_filters,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textrnn':
             nn = TextRNN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 rnn_size=FLAGS.rnn_size,
                 num_layers=FLAGS.num_rnn_layers,
@@ -191,10 +197,10 @@ with tf.Graph().as_default():
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textbirnn':
             nn = TextBiRNN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 rnn_size=FLAGS.rnn_size,
                 num_layers=FLAGS.num_rnn_layers,
@@ -202,20 +208,20 @@ with tf.Graph().as_default():
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'textrcnn':
             nn = TextRCNN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 batch_size=FLAGS.batch_size,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
         elif FLAGS.using_nn_type == 'texthan':
             nn = TextHAN(
+                model_type=FLAGS.model_type,
                 sequence_length=x_train.shape[1],
                 num_sentences=3,
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),
-                # embedding_size=FLAGS.embedding_dim,
                 embedding_size=embedding_dimension,
                 hidden_size=FLAGS.rnn_size,
                 batch_size=FLAGS.batch_size,
@@ -223,7 +229,6 @@ with tf.Graph().as_default():
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        # optimizer = tf.train.AdamOptimizer(1e-3)
         optimizer = tf.train.AdamOptimizer(nn.learning_rate)
         # Clip the gradient to avoid larger ones
         tvars = tf.trainable_variables()
@@ -294,23 +299,21 @@ with tf.Graph().as_default():
                 print("glove file has been loaded\n")
             sess.run(nn.W.assign(initW))
 
-        # def train_step(x_batch, y_batch):
         def train_step(x_batch, y_batch, learning_rate):
             """
             A single training step
             """
             feed_dict = {
-              nn.input_x: x_batch,
-              nn.input_y: y_batch,
-              nn.dropout_keep_prob: FLAGS.dropout_keep_prob,
-              nn.learning_rate: learning_rate
+                nn.input_x: x_batch,
+                nn.input_y: y_batch,
+                nn.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                nn.learning_rate: learning_rate
             }
             _, step, summaries, loss, accuracy = sess.run(
                 [train_op, global_step, train_summary_op, nn.loss, nn.accuracy],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            # print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-            print("{}: step {}, loss {:g}, acc {:g}, lr {:g}".format(time_str, step, loss, accuracy, learning_rate))            
+            print("{}: step {}, loss {:g}, acc {:g}, lr {:g}".format(time_str, step, loss, accuracy, learning_rate))
             train_summary_writer.add_summary(summaries, step)
 
         def dev_step(x_batch, y_batch, writer=None):
@@ -319,13 +322,15 @@ with tf.Graph().as_default():
             """
             if FLAGS.using_nn_type in ['fasttext', 'textdnn', 'textcnn', 'textrnn', 'textbirnn']:
                 feed_dict = {
-                nn.input_x: x_batch,
-                nn.input_y: y_batch,
-                nn.dropout_keep_prob: 1.0
+                    nn.input_x: x_batch,
+                    nn.input_y: y_batch,
+                    nn.dropout_keep_prob: 1.0
                 }
                 step, summaries, loss, accuracy = sess.run(
                     [global_step, dev_summary_op, nn.loss, nn.accuracy],
                     feed_dict)
+                if writer:
+                    writer.add_summary(summaries, step)
             elif FLAGS.using_nn_type in ['textrcnn', 'texthan']:
                 loss_sum = 0
                 accuracy_sum = 0
@@ -345,13 +350,12 @@ with tf.Graph().as_default():
                         feed_dict)
                     loss_sum += loss
                     accuracy_sum += accuracy
+                    if writer:
+                        writer.add_summary(summaries, step)
                 loss = loss_sum / batches_in_dev
                 accuracy = accuracy_sum / batches_in_dev
-            
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-            if writer:
-                writer.add_summary(summaries, step)
 
         # Generate batches
         batches = data_helpers.batch_iter(
@@ -366,7 +370,6 @@ with tf.Graph().as_default():
             learning_rate = min_learning_rate + (max_learning_rate - min_learning_rate) * math.exp(-counter/decay_speed)
             counter += 1
             x_batch, y_batch = zip(*batch)
-            # train_step(x_batch, y_batch)
             train_step(x_batch, y_batch, learning_rate)
             current_step = tf.train.global_step(sess, global_step)
             if current_step % FLAGS.evaluate_every == 0:
@@ -386,4 +389,4 @@ with tf.Graph().as_default():
         info = pd.DataFrame()
         info['attr'] = attrs
         info['value'] = values
-        info.to_csv(out_dir + '/config.csv')
+        info.to_csv(out_dir + '/config.csv', index=False)

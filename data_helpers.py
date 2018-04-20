@@ -27,26 +27,6 @@ def clean_str(string):
     return string.strip().lower()
 
 
-# def load_data_and_labels(positive_data_file, negative_data_file):
-#     """
-#     Loads MR polarity data from files, splits the data into words and generates labels.
-#     Returns split sentences and labels.
-#     """
-#     # Load data from files
-#     positive_examples = list(open(positive_data_file, "r").readlines())
-#     positive_examples = [s.strip() for s in positive_examples]
-#     negative_examples = list(open(negative_data_file, "r").readlines())
-#     negative_examples = [s.strip() for s in negative_examples]
-#     # Split by words
-#     x_text = positive_examples + negative_examples
-#     x_text = [clean_str(sent) for sent in x_text]
-#     # Generate labels
-#     positive_labels = [[0, 1] for _ in positive_examples]
-#     negative_labels = [[1, 0] for _ in negative_examples]
-#     y = np.concatenate([positive_labels, negative_labels], 0)
-#     return [x_text, y]
-
-
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     Generates a batch iterator for a dataset.
@@ -125,6 +105,7 @@ def get_datasets_financenews(data_file):
     Returns split sentences and labels.
     """
     df_data = pd.read_csv(data_file)
+    datasets = dict()
 
     use_text = 'Title' # Abstract
     strong_neg_examples = list(df_data[df_data['score']==1][use_text].values)
@@ -137,9 +118,8 @@ def get_datasets_financenews(data_file):
     weak_pos_examples = [str(s).strip() for s in weak_pos_examples]
     strong_pos_examples = list(df_data[df_data['score']==5][use_text].values)
     strong_pos_examples = [str(s).strip() for s in strong_pos_examples]
-
-    datasets = dict()
     datasets['data'] = strong_neg_examples + weak_neg_examples + neutral_examples + weak_pos_examples + strong_pos_examples
+
     target = [0 for x in strong_neg_examples] + [1 for x in weak_neg_examples] + [2 for x in neutral_examples] + \
              [3 for x in weak_pos_examples] + [4 for x in strong_pos_examples]
     datasets['target'] = target
@@ -161,6 +141,59 @@ def get_datasets_financenews_test(data_file):
     datasets = dict()
     datasets['data'] = examples
     return datasets
+
+
+def get_datasets_scoringdocuments(data_file):
+    """
+    Loads scored documents data from files, splits the data into sentences and generates labels.
+    Returns split sentences and score label.
+    """
+    df_data = pd.read_csv(data_file)
+    datasets = dict()
+
+    use_text = 'Abstract'
+    examples = list(df_data[use_text].values)
+    examples = [str(s).strip() for s in examples]
+    datasets['data'] = examples
+    target = list(df_data['Score'].values)
+    datasets['target'] = target
+    datasets['target_names'] = ['document_score']
+    return datasets
+
+
+def get_datasets_scoringdocuments_test(data_file):
+    """
+    Loads document data from files, splits the data into sentences.
+    Returns split sentences.
+    """
+    df_data = pd.read_csv(data_file)
+
+    use_text = 'Abstract'
+    examples = list(df_data[use_text].values)
+    examples = [str(s).strip() for s in examples]
+
+    datasets = dict()
+    datasets['data'] = examples
+    return datasets
+
+
+def load_data_label(datasets):
+    """
+    Load data and label
+    :param datasets:
+    :return:
+    """
+    # Split by words
+    x_text = datasets['data']
+    # x_text = [clean_str(sent) for sent in x_text]
+    x_text = [sent for sent in x_text]
+    # Generate regressor label
+    label = []
+    for i in range(len(x_text)):
+        score = datasets['target'][i]
+        label.append([score])
+    y = np.array(label)
+    return [x_text, y]
 
 
 def load_data_labels(datasets):

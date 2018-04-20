@@ -2,8 +2,8 @@
 # -*- coding: UTF-8 -*-
 
 """
-~/anaconda3/bin/python eval_pred_news.py --evaluate --checkpoint_dir="./runs/1523240176/checkpoints/"
-~/anaconda3/bin/python eval_pred_news.py --predict --checkpoint_dir="./runs/1523240176/checkpoints/"
+$ ~/anaconda3/bin/python eval_pred.py --evaluate --checkpoint_dir="./runs/1523240176/checkpoints/"
+$ ~/anaconda3/bin/python eval_pred.py --predict --checkpoint_dir="./runs/1523240176/checkpoints/"
 """
 
 import numpy as np
@@ -42,10 +42,9 @@ with open("config.yml", 'r') as ymlfile:
 # ==================================================
 
 # Data Parameters
-# tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos", "Data source for the positive data.")
-# tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
+tf.flags.DEFINE_string("model_type", "clf", "The type of model, classification or regression (default: clf)")  # clf/reg
 
-# Eval Parameters
+# Evaluating Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_string("checkpoint_dir", "", "Checkpoint directory from training run")
 tf.flags.DEFINE_boolean("evaluate", False, "Evaluate on all training data")
@@ -64,7 +63,7 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 
-# CHANGE THIS: Load data. Load your own data here
+# CHANGE THIS: Load data. Load your own evaluating set or testing set here
 datasets = None
 dataset_name = cfg["datasets"]["default"]
 if FLAGS.evaluate:
@@ -78,8 +77,14 @@ if FLAGS.evaluate:
                                               random_state=cfg["datasets"][dataset_name]["random_state"])
     elif dataset_name == "financenews":
         datasets = data_helpers.get_datasets_financenews(cfg["datasets"][dataset_name]["path"])
-    x_raw, y_test = data_helpers.load_data_labels(datasets)
-    y_test = np.argmax(y_test, axis=1)
+    elif dataset_name == "scoringdocuments":
+        datasets = data_helpers.get_datasets_scoringdocuments(cfg["datasets"][dataset_name]["path"])
+
+    if FLAGS.model_type == 'clf':
+        x_raw, y_test = data_helpers.load_data_labels(datasets)
+        y_test = np.argmax(y_test, axis=1)
+    elif FLAGS.model_type == 'reg':
+        x_raw, y_test = data_helpers.load_data_label(datasets)
 
 elif FLAGS.predict:
     if dataset_name == "mrpolarity":
@@ -96,10 +101,11 @@ elif FLAGS.predict:
         datasets = data_helpers.get_datasets_financenews_test(cfg["datasets"][dataset_name]["test_path"])
         x_raw = data_helpers.load_data(datasets)
         y_test = None
-        # datasets = {"target_names": ['strong_neg_examples', 'weak_neg_examples', 'neutral_examples', 'weak_pos_examples', 'strong_pos_examples']}
-        # x_raw = ["这是什么垃圾股票", "我赚翻了"]
-        # y_test = None
-    
+    elif dataset_name == "scoringdocuments":
+        datasets = {"target_names": ['document_score']}
+        datasets = data_helpers.get_datasets_scoringdocuments_test(cfg["datasets"][dataset_name]["test_path"])
+        x_raw = data_helpers.load_data(datasets)
+        y_test = None
 
 # Map data into vocabulary
 vocab_path = os.path.join(FLAGS.checkpoint_dir, "..", "vocab")
@@ -141,11 +147,12 @@ with graph.as_default():
         all_probabilities = None
 
         for index, x_test_batch in enumerate(batches):
-            # batch_predictions = sess.run(predictions, {input_x: x_test_batch, dropout_keep_prob: 1.0})
-            # all_predictions = np.concatenate([all_predictions, batch_predictions])
             batch_predictions_scores = sess.run([predictions, scores], {input_x: x_test_batch, dropout_keep_prob: 1.0})
             all_predictions = np.concatenate([all_predictions, batch_predictions_scores[0]])
-            probabilities = softmax(batch_predictions_scores[1])
+            if FLAGS.model_type == 'clf':
+                probabilities = softmax(batch_predictions_scores[1])
+            elif FLAGS.model_type == 'reg':
+                probabilities = batch_predictions_scores[1]
             if all_probabilities is not None:
                 all_probabilities = np.concatenate([all_probabilities, probabilities])
             else:
@@ -154,7 +161,7 @@ with graph.as_default():
             print("{}: step {}".format(time_str, (index+1)*FLAGS.batch_size))
 
 # Print accuracy if y_test is defined
-if y_test is not None:
+if y_test is not None and FLAGS.model_type == 'clf':
     y_test = y_test[:len(y_test)-len(y_test)%FLAGS.batch_size]    
     correct_predictions = float(sum(all_predictions == y_test))
     print("Total number of test examples: {}".format(len(y_test)))
@@ -162,18 +169,22 @@ if y_test is not None:
     print(metrics.classification_report(y_test, all_predictions, target_names=datasets['target_names']))
     print(metrics.confusion_matrix(y_test, all_predictions))
 
-# Save the evaluation to a csv
-# predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
+# Save the evaluation result or testing result to a csv
 x_raw = x_raw[:len(x_raw)-len(x_raw)%FLAGS.batch_size]
-predictions_human_readable = np.column_stack((np.array(x_raw),
-                                              [int(prediction)+1 for prediction in all_predictions],
-                                              [ "{}".format(probability) for probability in all_probabilities]))
-predict_results = pd.DataFrame(predictions_human_readable, columns=['Content','Label','Probabilities'])
+if FLAGS.model_type == 'clf':
+    predictions_human_readable = np.column_stack((np.array(x_raw),
+                                                  [int(prediction)+1 for prediction in all_predictions],
+                                                  ["{}".format(probability) for probability in all_probabilities]))
+    predict_results = pd.DataFrame(predictions_human_readable, columns=['Content','Label','Probabilities'])
+elif FLAGS.model_type == 'reg':
+    predictions_human_readable = np.column_stack((np.array(x_raw),
+                                                  ["{}".format(prediction) for prediction in all_predictions],
+                                                  [probability[0] for probability in all_probabilities]))
+    predict_results = pd.DataFrame(predictions_human_readable, columns=['Content','Value','Score'])
+
 if FLAGS.evaluate:
     out_path = os.path.join(FLAGS.checkpoint_dir, "..", "evaluation.csv")
 elif FLAGS.predict:
     out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")    
 print("Saving evaluation to {0}".format(out_path))
-predict_results.to_csv(out_path)
-# with open(out_path, 'w') as f:
-    # csv.writer(f).writerows(predictions_human_readable)
+predict_results.to_csv(out_path, index=False)

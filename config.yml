@@ -13,9 +13,12 @@ word_embeddings:
     length: 400000
 
 datasets:
-  # Support currently 3 datasets: mrpolarity, 20newsgroup and localdata
+  # Support currently 5 datasets (default: mrpolarity):
+  # Classification task: mrpolarity, 20newsgroup, localdata, financenews
+  # Regression task: scoringdocuments
   default: mrpolarity
   mrpolarity:
+    # The dataset includes following positive/negative movie reviews:
     positive_data_file:
       path: "data/rt-polaritydata/rt-polarity.pos"
       info: "Data source for the positive data"
@@ -59,3 +62,8 @@ datasets:
     path: "data/financenews/financeNews12000_abstract.csv"
     test_path: "data/financenews/news.csv"
     info: "Data source for the finance news data"
+  scoringdocuments:
+  # The dataset includes documents following with their scores:
+    path: "data/scoringdocuments/scoringdocuments.csv"
+    test_path: "data/scoringdocuments/scoringdocuments.csv"
+    info: "Data source for the scored documents data"

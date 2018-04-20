@@ -4,11 +4,11 @@ import numpy as np
 
 class TextHAN(object):
     """
-    A Hierarchical Attention Network for text classification.
-    Uses an embedding layer, followed by a Word Encoder, Word Attention, Sentence Encoder, Sentence Attetion, fully-connected and softmax layer.
+    A Hierarchical Attention Network for text classification/regression.
+    Uses an embedding layer, followed by a Word Encoder, Word Attention, Sentence Encoder, Sentence Attetion, fully-connected (and softmax) layer.
     """
     def __init__(
-      self, sequence_length, num_sentences, num_classes, vocab_size,
+      self, model_type, sequence_length, num_sentences, num_classes, vocab_size,
       embedding_size, hidden_size, batch_size, l2_reg_lambda=0.5):  # batch_size, 
 
         # parameters
@@ -83,24 +83,38 @@ class TextHAN(object):
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
             self.scores = tf.nn.xw_plus_b(self.rnn_drop, W, b, name="scores")
-            self.predictions = tf.argmax(self.scores, 1, name="predictions")
+            if model_type == 'clf':
+                self.predictions = tf.argmax(self.scores, 1, name="predictions")
+            elif model_type == 'reg':
+                self.predictions = tf.reduce_max(self.scores, 1, name="predictions")
+                self.predictions = tf.expand_dims(self.predictions, -1)
 
-        # Calculate mean cross-entropy loss
+        # Calculate mean cross-entropy loss, or root-mean-square error loss
         with tf.name_scope("loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
-            self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
+            if model_type == 'clf':
+                losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+                self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
+            elif model_type == 'reg':
+                losses = tf.sqrt(tf.losses.mean_squared_error(predictions=self.predictions, labels=self.input_y))
+                self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
         # Accuracy
         with tf.name_scope("accuracy"):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+            if model_type == 'clf':
+                correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
+                self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+            elif model_type == 'reg':
+                self.accuracy = tf.constant(0.0, name="accuracy")
 
     
     def instantiate_weights(self):
         """define all weights here"""
         # Embedding layer
         with tf.name_scope("embedding"):
-            self.W = tf.Variable(tf.random_uniform([self.vocab_size, self.embed_size], -1.0, 1.0), name="W")
+            # When trainable parameter equals True the embedding vector is non-static, otherwise is static
+            self.W = tf.Variable(
+                tf.random_uniform([self.vocab_size, self.embed_size], -1.0, 1.0),
+                name="W", trainable=True)
 
         with tf.name_scope("gru_weights_word_level"):
             self.W_z = tf.get_variable("W_z", shape=[self.embed_size, self.hidden_size], initializer=self.initializer)
